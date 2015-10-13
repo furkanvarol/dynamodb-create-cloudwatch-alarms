@@ -14,6 +14,7 @@ Options:
     -h, --help  Show this screen and exit.
     --debug     Don't send data to AWS.
     --ratio=N   Upper bound limit between 10 and 95 (inclusive) [default: 80].
+    --region=R  Region name to connect AWS [default: us-east-1].
 
 """
 import boto
@@ -29,6 +30,7 @@ DDB_METRICS = frozenset([u'ConsumedReadCapacityUnits',
                          u'ConsumedWriteCapacityUnits'])
 
 RATIO = 0.8
+REGION = 'us-east-1'
 ALARM_PERIOD = 300
 ALARM_EVALUATION_PERIOD = 12
 
@@ -40,7 +42,7 @@ def get_ddb_tables():
     Returns:
         (set) Of valid DynamoDB table names
     """
-    ddb_connection = boto.connect_dynamodb()
+    ddb_connection = boto.dynamodb.connect_to_region(REGION)
     ddb_tables_list = ddb_connection.list_tables()
     ddb_tables = set()
     for ddb_table in ddb_tables_list:
@@ -160,6 +162,8 @@ def main():
     schema = Schema({
         '--ratio': And(Use(int), lambda n: 10 <= n <= 95,
                       error='--ratio=N should be integer and 10 <= N <= 95'),
+        '--region': And(boto.ec2.get_region,
+                      error='--region=R should be a valid region name'),
         str: object})
    
     try:
@@ -168,13 +172,14 @@ def main():
         exit(e)
 
     # Setting arguments
-    global DEBUG, RATIO
+    global DEBUG, RATIO, REGION
 
     DEBUG = args['--debug']
     RATIO = args['--ratio'] / 100.0
+    REGION = args['--region']
 
     ddb_tables = get_ddb_tables()
-    aws_cw_connect = boto.connect_cloudwatch()
+    aws_cw_connect = boto.ec2.cloudwatch.connect_to_region(REGION)
 
     (alarms_to_create,
      alarms_to_update) = get_ddb_alarms_to_create(ddb_tables,

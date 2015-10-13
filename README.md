@@ -22,12 +22,15 @@ Options:
     -h, --help  Show this screen and exit.
     --debug     Don't send data to AWS.
     --ratio=N   Upper bound limit between 10 and 95 (inclusive) [default: 80].
+    --region=R  Region name to connect AWS [default: us-east-1].
     
 Examples:
     dynamodb_create_cloudwatch_alarms
     dynamodb_create_cloudwatch_alarms --debug
     dynamodb_create_cloudwatch_alarms --ratio=90
-    dynamodb_create_cloudwatch_alarms --debug --ratio=90
+    dynamodb_create_cloudwatch_alarms --region=eu-west-1
+    dynamodb_create_cloudwatch_alarms --ratio=90 --region=eu-west-1
+    dynamodb_create_cloudwatch_alarms --debug --ratio=90 --region=eu-west-1
 ```
 
 # Install
