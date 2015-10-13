@@ -13,7 +13,8 @@ setup(
     packages=['dynamodb_create_cloudwatch_alarms'],
     install_requires=[
         'boto',
-        'docopt'
+        'docopt',
+        'schema'
     ],
     entry_points={
         'console_scripts': [

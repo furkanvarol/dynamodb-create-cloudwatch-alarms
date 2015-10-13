@@ -19,11 +19,15 @@ Usage:
     dynamodb_create_cloudwatch_alarms [-h | --help]
 
 Options:
-    --debug   Don't send data to AWS
+    -h, --help  Show this screen and exit.
+    --debug     Don't send data to AWS.
+    --ratio=N   Upper bound limit between 10 and 95 (inclusive) [default: 80].
     
 Examples:
     dynamodb_create_cloudwatch_alarms
     dynamodb_create_cloudwatch_alarms --debug
+    dynamodb_create_cloudwatch_alarms --ratio=90
+    dynamodb_create_cloudwatch_alarms --debug --ratio=90
 ```
 
 # Install

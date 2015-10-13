@@ -6,13 +6,14 @@ AWS CloudWatch alarms for each DynamoDB table.
 If set as a cron job - updates existing alarms if
 Read/Write Capacity Units DynamoDB table parameters changed.
 
-
 Usage:
     dynamodb-create-cloudwatch-alarms [options]
     dynamodb-create-cloudwatch-alarms [-h | --help]
 
 Options:
-     --debug   Don't send data to AWS
+    -h, --help  Show this screen and exit.
+    --debug     Don't send data to AWS.
+    --ratio=N   Upper bound limit between 10 and 95 (inclusive) [default: 80].
 
 """
 import boto
@@ -20,11 +21,14 @@ import boto.ec2
 import boto.dynamodb
 from docopt import docopt
 from boto.ec2.cloudwatch import MetricAlarm
+from schema import Schema, And, Use, SchemaError
 
 DEBUG = False
 
 DDB_METRICS = frozenset([u'ConsumedReadCapacityUnits',
                          u'ConsumedWriteCapacityUnits'])
+
+RATIO = 0.8
 ALARM_PERIOD = 300
 ALARM_EVALUATION_PERIOD = 12
 
@@ -129,7 +133,7 @@ def get_ddb_alarms_to_create(ddb_tables, aws_cw_connect):
                 namespace=u'AWS/DynamoDB',
                 metric=u'{}'.format(metric), statistic='Sum',
                 comparison=u'>=',
-                threshold=0.8*threshold*ALARM_PERIOD,
+                threshold=RATIO*threshold*ALARM_PERIOD,
                 period=ALARM_PERIOD,
                 evaluation_periods=ALARM_EVALUATION_PERIOD,
                 # Below insert the actions appropriate.
@@ -152,10 +156,22 @@ def get_ddb_alarms_to_create(ddb_tables, aws_cw_connect):
 def main():
     args = docopt(__doc__)
 
-    global DEBUG
+    # Validating arguments
+    schema = Schema({
+        '--ratio': And(Use(int), lambda n: 10 <= n <= 95,
+                      error='--ratio=N should be integer and 10 <= N <= 95'),
+        str: object})
+   
+    try:
+        args = schema.validate(args)
+    except SchemaError as e:
+        exit(e)
 
-    if args['--debug']:
-        DEBUG = True
+    # Setting arguments
+    global DEBUG, RATIO
+
+    DEBUG = args['--debug']
+    RATIO = args['--ratio'] / 100.0
 
     ddb_tables = get_ddb_tables()
     aws_cw_connect = boto.connect_cloudwatch()
