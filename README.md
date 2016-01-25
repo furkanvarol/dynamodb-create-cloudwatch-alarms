@@ -15,13 +15,14 @@ If set as a cron job - updates existing alarms if
 Read/Write Capacity Units DynamoDB table parameters changed.
 
 Usage:
-    dynamodb-create-cloudwatch-alarms (--sns <sns_topic_arn>) [options
+    dynamodb-create-cloudwatch-alarms (--sns <sns_topic_arn>) [options]
     dynamodb_create_cloudwatch_alarms [-h | --help]
 
 Options:
     -h,    --help                 Show this screen and exit.
     -d,    --debug                Don't send data to AWS.
     -s=S,  --sns=S                AWS SNS TOPIC (required)
+    -p=S,  --prefix=S             DynamoDB table name prefix
     -r=N,  --ratio=N              Upper bound limit between 10 and 95 (inclusive) [default: 80].
     -ap=S, --alarm-period=S       Sets alarm period in seconds [default: 300]
     -ep=N, --evaluation-period=N  Sets alarm evalutation period (consecutive) [default: 12]
@@ -33,6 +34,8 @@ Examples:
     dynamodb_create_cloudwatch_alarms --sns=TOPIC --ratio=90
     dynamodb_create_cloudwatch_alarms --sns=TOPIC --region=eu-west-1
     dynamodb_create_cloudwatch_alarms --sns=TOPIC --ratio=90 --region=eu-west-1
+    dynamodb_create_cloudwatch_alarms --sns=TOPIC --prefix=my_ddb_table
+    dynamodb_create_cloudwatch_alarms --sns=TOPIC --alarm-period=300 --evaluation-period=12
     dynamodb_create_cloudwatch_alarms --sns=TOPIC --debug --ratio=90 --region=eu-west-1
 ```
 

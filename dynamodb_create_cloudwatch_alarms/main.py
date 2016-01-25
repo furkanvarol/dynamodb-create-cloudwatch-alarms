@@ -7,12 +7,13 @@ If set as a cron job - updates existing alarms if
 Read/Write Capacity Units DynamoDB table parameters changed.
 
 Usage:
-    dynamodb-create-cloudwatch-alarms (--sns <sns_topic_arn>) [options]
+    dynamodb-create-cloudwatch-alarms (-s <topic>) [-d | -p <str> | -r <n> | -ap <sec> | -ep <n> | -r <reg>]
     dynamodb-create-cloudwatch-alarms [-h | --help]
 
 Options:
     -h,    --help                 Show this screen and exit.
     -d,    --debug                Don't send data to AWS.
+    -p=S,  --prefix=S             DynamoDB table name prefix
     -s=S,  --sns=S                AWS SNS TOPIC (required)
     -r=N,  --ratio=N              Upper bound limit between 10 and 95 (inclusive) [default: 80].
     -ap=S, --alarm-period=S       Sets alarm period in seconds [default: 300]
@@ -31,6 +32,7 @@ DEBUG = False
 
 DDB_METRICS = frozenset([u'ConsumedReadCapacityUnits', u'ConsumedWriteCapacityUnits'])
 
+PREFIX = None
 SNS = None
 RATIO = 0.8
 REGION = 'us-east-1'
@@ -40,15 +42,20 @@ EVALUATION_PERIOD = 12
 
 def get_ddb_tables():
     """
-    Retrieves all DynamoDB table names
+    Retrieves all DynamoDB table names (which starts with PREFIX if supplied)
 
     Returns:
         (set) Of valid DynamoDB table names
     """
+
     ddb_connection = boto.dynamodb.connect_to_region(REGION)
     ddb_tables_list = ddb_connection.list_tables()
     ddb_tables = set()
     for ddb_table in ddb_tables_list:
+
+        # checking whether a prefix given and matches with table name
+        if PREFIX and not ddb_table.startswith(PREFIX):
+            continue
 
         ddb_table_attributes = ddb_connection.describe_table(ddb_table)
         # creating a variable for each unit to satisfy flake8
@@ -72,6 +79,7 @@ def get_existing_alarm_names(aws_cw_connect):
     Returns:
         (dict) Existing CloudWatch DDB alarms (name and threshold)
     """
+
     assert isinstance(aws_cw_connect,
                       boto.ec2.cloudwatch.CloudWatchConnection)
 
@@ -112,6 +120,7 @@ def get_ddb_alarms_to_create(ddb_tables, aws_cw_connect):
         (set) All new Read/Write Capacity Units alarms that'll be created
         (set) All existing Read/Write Capacity Units alarms that'll be updated
     """
+
     assert isinstance(ddb_tables, set)
     assert isinstance(aws_cw_connect,
                       boto.ec2.cloudwatch.CloudWatchConnection)
@@ -127,14 +136,15 @@ def get_ddb_alarms_to_create(ddb_tables, aws_cw_connect):
                 threshold = table[1]
             elif metric == u'ConsumedWriteCapacityUnits':
                 threshold = table[2]
+
             # initiate a MetricAlarm object for each DynamoDb table.
             # for the threshold we calculate the 80 percent
             # from the tables ProvisionedThroughput values
             ddb_table_alarm = MetricAlarm(
-                name=u'{}-{}-BasicAlarm'.format(table[0],
-                                                (metric.
-                                                 replace('Consumed',
-                                                         '') + 'Limit')),
+                name=u'{}-{}-BasicAlarm'.format(
+                    table[0],
+                    metric.replace('Consumed','') + 'Limit'
+                ),
                 namespace=u'AWS/DynamoDB',
                 metric=u'{}'.format(metric), statistic='Sum',
                 comparison=u'>=',
@@ -143,11 +153,13 @@ def get_ddb_alarms_to_create(ddb_tables, aws_cw_connect):
                 evaluation_periods=EVALUATION_PERIOD,
                 # Below insert the actions appropriate.
                 alarm_actions=[SNS],
-                dimensions={u'TableName': table[0]})
+                dimensions={u'TableName': table[0]}
+            )
 
             # we create an Alarm metric for each new DDB table
             if ddb_table_alarm.name not in existing_alarms.iterkeys():
                 alarms_to_create.add(ddb_table_alarm)
+
             # checking the existing alarms thresholds
             # update them if there are changes
             for key, value in existing_alarms.iteritems():
@@ -161,7 +173,7 @@ def get_ddb_alarms_to_create(ddb_tables, aws_cw_connect):
 def main():
     args = docopt(__doc__)
 
-    # Validating arguments
+    # validating arguments
     schema = Schema({
         '--ratio': And(Use(int), lambda n: 10 <= n <= 95,
                       error='--ratio=N must be integer and 10 <= N <= 95'),
@@ -178,13 +190,14 @@ def main():
     except SchemaError as e:
         exit(e)
 
-    # Setting arguments
-    global DEBUG, RATIO, REGION, SNS, ALARM_PERIOD, EVALUATION_PERIOD
+    # setting arguments
+    global DEBUG, RATIO, REGION, SNS, PREFIX, ALARM_PERIOD, EVALUATION_PERIOD
 
     DEBUG = args['--debug']
     RATIO = args['--ratio'] / 100.0
     REGION = args['--region']
     SNS = args['--sns']
+    PREFIX = args['--prefix']
     ALARM_PERIOD = args['--alarm-period']
     EVALUATION_PERIOD = args['--evaluation-period']
 
@@ -192,10 +205,9 @@ def main():
     aws_cw_connect = boto.ec2.cloudwatch.connect_to_region(REGION)
 
     (alarms_to_create,
-     alarms_to_update) = get_ddb_alarms_to_create(ddb_tables,
-                                                  aws_cw_connect)
+     alarms_to_update) = get_ddb_alarms_to_create(ddb_tables, aws_cw_connect)
 
-    # Creating new alarms
+    # creating new alarms
     if alarms_to_create:
         if DEBUG:
             for alarm in alarms_to_create:
@@ -206,7 +218,7 @@ def main():
                 aws_cw_connect.create_alarm(alarm)
                 print alarm
 
-    # Updating existing alarms
+    # updating existing alarms
     if alarms_to_update:
         if DEBUG:
             for alarm in alarms_to_update:
@@ -218,5 +230,4 @@ def main():
                 print alarm
 
 if __name__ == '__main__':
-
     main()
