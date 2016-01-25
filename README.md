@@ -15,22 +15,23 @@ If set as a cron job - updates existing alarms if
 Read/Write Capacity Units DynamoDB table parameters changed.
 
 Usage:
-    dynamodb_create_cloudwatch_alarms [options]
+    dynamodb-create-cloudwatch-alarms (--sns <sns_topic_arn>) [--region <region>] [--ratio <ratio>] [--debug]
     dynamodb_create_cloudwatch_alarms [-h | --help]
 
 Options:
-    -h, --help  Show this screen and exit.
+    -h, --help  Show this screen and exit
+    --sns=S     AWS SNS TOPIC (required).
     --debug     Don't send data to AWS.
     --ratio=N   Upper bound limit between 10 and 95 (inclusive) [default: 80].
     --region=R  Region name to connect AWS [default: us-east-1].
-    
+
 Examples:
-    dynamodb_create_cloudwatch_alarms
-    dynamodb_create_cloudwatch_alarms --debug
-    dynamodb_create_cloudwatch_alarms --ratio=90
-    dynamodb_create_cloudwatch_alarms --region=eu-west-1
-    dynamodb_create_cloudwatch_alarms --ratio=90 --region=eu-west-1
-    dynamodb_create_cloudwatch_alarms --debug --ratio=90 --region=eu-west-1
+    dynamodb_create_cloudwatch_alarms --sns=TOPIC
+    dynamodb_create_cloudwatch_alarms --sns=TOPIC --debug
+    dynamodb_create_cloudwatch_alarms --sns=TOPIC --ratio=90
+    dynamodb_create_cloudwatch_alarms --sns=TOPIC --region=eu-west-1
+    dynamodb_create_cloudwatch_alarms --sns=TOPIC --ratio=90 --region=eu-west-1
+    dynamodb_create_cloudwatch_alarms --sns=TOPIC --debug --ratio=90 --region=eu-west-1
 ```
 
 # Install

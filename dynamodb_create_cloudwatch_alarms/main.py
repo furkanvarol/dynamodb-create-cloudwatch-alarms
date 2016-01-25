@@ -7,12 +7,13 @@ If set as a cron job - updates existing alarms if
 Read/Write Capacity Units DynamoDB table parameters changed.
 
 Usage:
-    dynamodb-create-cloudwatch-alarms [options]
+    dynamodb-create-cloudwatch-alarms (--sns <sns_topic_arn>) [--region <region>] [--ratio <ratio>] [--debug]
     dynamodb-create-cloudwatch-alarms [-h | --help]
 
 Options:
     -h, --help  Show this screen and exit.
     --debug     Don't send data to AWS.
+    --sns=S     AWS SNS TOPIC (required)
     --ratio=N   Upper bound limit between 10 and 95 (inclusive) [default: 80].
     --region=R  Region name to connect AWS [default: us-east-1].
 
@@ -29,6 +30,7 @@ DEBUG = False
 DDB_METRICS = frozenset([u'ConsumedReadCapacityUnits',
                          u'ConsumedWriteCapacityUnits'])
 
+SNS = None
 RATIO = 0.8
 REGION = 'us-east-1'
 ALARM_PERIOD = 300
@@ -139,7 +141,7 @@ def get_ddb_alarms_to_create(ddb_tables, aws_cw_connect):
                 period=ALARM_PERIOD,
                 evaluation_periods=ALARM_EVALUATION_PERIOD,
                 # Below insert the actions appropriate.
-                alarm_actions=[u'some_action'],
+                alarm_actions=[SNS],
                 dimensions={u'TableName': table[0]})
 
             # we create an Alarm metric for each new DDB table
@@ -172,11 +174,12 @@ def main():
         exit(e)
 
     # Setting arguments
-    global DEBUG, RATIO, REGION
+    global DEBUG, RATIO, REGION, SNS
 
     DEBUG = args['--debug']
     RATIO = args['--ratio'] / 100.0
     REGION = args['--region']
+    SNS = args['--sns']
 
     ddb_tables = get_ddb_tables()
     aws_cw_connect = boto.ec2.cloudwatch.connect_to_region(REGION)
