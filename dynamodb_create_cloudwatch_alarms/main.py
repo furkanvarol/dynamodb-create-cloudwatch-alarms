@@ -7,17 +7,19 @@ If set as a cron job - updates existing alarms if
 Read/Write Capacity Units DynamoDB table parameters changed.
 
 Usage:
-    dynamodb-create-cloudwatch-alarms (--sns <sns_topic_arn>) [--region <region>] [--ratio <ratio>] [--debug]
+    dynamodb-create-cloudwatch-alarms (--sns <sns_topic_arn>) [options]
     dynamodb-create-cloudwatch-alarms [-h | --help]
 
 Options:
-    -h, --help  Show this screen and exit.
-    --debug     Don't send data to AWS.
-    --sns=S     AWS SNS TOPIC (required)
-    --ratio=N   Upper bound limit between 10 and 95 (inclusive) [default: 80].
-    --region=R  Region name to connect AWS [default: us-east-1].
-
+    -h,    --help                 Show this screen and exit.
+    -d,    --debug                Don't send data to AWS.
+    -s=S,  --sns=S                AWS SNS TOPIC (required)
+    -r=N,  --ratio=N              Upper bound limit between 10 and 95 (inclusive) [default: 80].
+    -ap=S, --alarm-period=S       Sets alarm period in seconds [default: 300]
+    -ep=N, --evaluation-period=N  Sets alarm evalutation period (consecutive) [default: 12]
+    -r=R,  --region=R             Region name to connect AWS [default: us-east-1].
 """
+
 import boto
 import boto.ec2
 import boto.dynamodb
@@ -27,14 +29,13 @@ from schema import Schema, And, Use, SchemaError
 
 DEBUG = False
 
-DDB_METRICS = frozenset([u'ConsumedReadCapacityUnits',
-                         u'ConsumedWriteCapacityUnits'])
+DDB_METRICS = frozenset([u'ConsumedReadCapacityUnits', u'ConsumedWriteCapacityUnits'])
 
 SNS = None
 RATIO = 0.8
 REGION = 'us-east-1'
 ALARM_PERIOD = 300
-ALARM_EVALUATION_PERIOD = 12
+EVALUATION_PERIOD = 12
 
 
 def get_ddb_tables():
@@ -139,7 +140,7 @@ def get_ddb_alarms_to_create(ddb_tables, aws_cw_connect):
                 comparison=u'>=',
                 threshold=RATIO*threshold*ALARM_PERIOD,
                 period=ALARM_PERIOD,
-                evaluation_periods=ALARM_EVALUATION_PERIOD,
+                evaluation_periods=EVALUATION_PERIOD,
                 # Below insert the actions appropriate.
                 alarm_actions=[SNS],
                 dimensions={u'TableName': table[0]})
@@ -163,23 +164,29 @@ def main():
     # Validating arguments
     schema = Schema({
         '--ratio': And(Use(int), lambda n: 10 <= n <= 95,
-                      error='--ratio=N should be integer and 10 <= N <= 95'),
+                      error='--ratio=N must be integer and 10 <= N <= 95'),
         '--region': And(boto.ec2.get_region,
-                      error='--region=R should be a valid region name'),
+                      error='--region=R must be a valid region name'),
+        '--alarm-period': And(Use(int), lambda n: n >= 60,
+                      error='--alarm-period=S must be bigger than or equal to 60'),
+        '--evaluation-period': And(Use(int), lambda n: n >= 1,
+                      error='--evaluation-period=N must be bigger than or equal to 1'),
         str: object})
-   
+
     try:
         args = schema.validate(args)
     except SchemaError as e:
         exit(e)
 
     # Setting arguments
-    global DEBUG, RATIO, REGION, SNS
+    global DEBUG, RATIO, REGION, SNS, ALARM_PERIOD, EVALUATION_PERIOD
 
     DEBUG = args['--debug']
     RATIO = args['--ratio'] / 100.0
     REGION = args['--region']
     SNS = args['--sns']
+    ALARM_PERIOD = args['--alarm-period']
+    EVALUATION_PERIOD = args['--evaluation-period']
 
     ddb_tables = get_ddb_tables()
     aws_cw_connect = boto.ec2.cloudwatch.connect_to_region(REGION)
