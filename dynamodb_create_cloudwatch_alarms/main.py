@@ -7,18 +7,28 @@ If set as a cron job - updates existing alarms if
 Read/Write Capacity Units DynamoDB table parameters changed.
 
 Usage:
-    dynamodb-create-cloudwatch-alarms (-s <topic>) [-d | -p <str> | -r <n> | -ap <sec> | -ep <n> | -r <reg>]
+    dynamodb-create-cloudwatch-alarms (-s <topic>) [-d] [-p <str>] [-r <n>] [-a <sec>] [-e <n>] [-R <region>]
     dynamodb-create-cloudwatch-alarms [-h | --help]
 
 Options:
-    -h,    --help                 Show this screen and exit.
-    -d,    --debug                Don't send data to AWS.
-    -p=S,  --prefix=S             DynamoDB table name prefix
-    -s=S,  --sns=S                AWS SNS TOPIC (required)
-    -r=N,  --ratio=N              Upper bound limit between 10 and 95 (inclusive) [default: 80].
-    -ap=S, --alarm-period=S       Sets alarm period in seconds [default: 300]
-    -ep=N, --evaluation-period=N  Sets alarm evalutation period (consecutive) [default: 12]
-    -r=R,  --region=R             Region name to connect AWS [default: us-east-1].
+    -h, --help   Show this screen and exit.
+    -d           Don't send data to AWS.
+    -s <topic>   AWS SNS ARN topic (required).
+    -p <str>     DynamoDB table name prefix.
+    -r <n>       Upper bound limit between 10 and 95 (inclusive) [default: 80].
+    -a <sec>     Sets alarm period in seconds (>= 60) [default: 300].
+    -e <n>       Sets alarm evalutation period (consecutive) (>= 1) [default: 12].
+    -R <region>  Region name to connect AWS [default: us-east-1].
+
+Examples:
+    dynamodb_create_cloudwatch_alarms -s arn:aws:sns:eu-west-1:123456789012:dynamodb_sns
+    dynamodb_create_cloudwatch_alarms -s arn:aws:sns:eu-west-1:123456789012:dynamodb_sns -d
+    dynamodb_create_cloudwatch_alarms -s arn:aws:sns:eu-west-1:123456789012:dynamodb_sns -r 90
+    dynamodb_create_cloudwatch_alarms -s arn:aws:sns:eu-west-1:123456789012:dynamodb_sns -R eu-west-1
+    dynamodb_create_cloudwatch_alarms -s arn:aws:sns:eu-west-1:123456789012:dynamodb_sns -r 90 -R eu-west-1
+    dynamodb_create_cloudwatch_alarms -s arn:aws:sns:eu-west-1:123456789012:dynamodb_sns -p my_ddb_table
+    dynamodb_create_cloudwatch_alarms -s arn:aws:sns:eu-west-1:123456789012:dynamodb_sns -a 300 -e 12
+    dynamodb_create_cloudwatch_alarms -s arn:aws:sns:eu-west-1:123456789012:dynamodb_sns -r 90 -R eu-west-1 -p my_ddb_table -a 300 -e 12 -d
 """
 
 import boto
@@ -175,14 +185,14 @@ def main():
 
     # validating arguments
     schema = Schema({
-        '--ratio': And(Use(int), lambda n: 10 <= n <= 95,
-                      error='--ratio=N must be integer and 10 <= N <= 95'),
-        '--region': And(boto.ec2.get_region,
-                      error='--region=R must be a valid region name'),
-        '--alarm-period': And(Use(int), lambda n: n >= 60,
-                      error='--alarm-period=S must be bigger than or equal to 60'),
-        '--evaluation-period': And(Use(int), lambda n: n >= 1,
-                      error='--evaluation-period=N must be bigger than or equal to 1'),
+        '-r': And(Use(int), lambda n: 10 <= n <= 95,
+                      error='-r must be integer and 10 <= N <= 95'),
+        '-R': And(boto.ec2.get_region,
+                      error='-R must be a valid region name'),
+        '-a': And(Use(int), lambda s: s >= 60,
+                      error='-a must be integer and S >= 60'),
+        '-e': And(Use(int), lambda n: n >= 1,
+                      error='-e must be integer and N >= 1'),
         str: object})
 
     try:
@@ -193,13 +203,13 @@ def main():
     # setting arguments
     global DEBUG, RATIO, REGION, SNS, PREFIX, ALARM_PERIOD, EVALUATION_PERIOD
 
-    DEBUG = args['--debug']
-    RATIO = args['--ratio'] / 100.0
-    REGION = args['--region']
-    SNS = args['--sns']
-    PREFIX = args['--prefix']
-    ALARM_PERIOD = args['--alarm-period']
-    EVALUATION_PERIOD = args['--evaluation-period']
+    DEBUG = args['-d']
+    RATIO = args['-r'] / 100.0
+    REGION = args['-R']
+    SNS = args['-s']
+    PREFIX = args['-p']
+    ALARM_PERIOD = args['-a']
+    EVALUATION_PERIOD = args['-e']
 
     ddb_tables = get_ddb_tables()
     aws_cw_connect = boto.ec2.cloudwatch.connect_to_region(REGION)
